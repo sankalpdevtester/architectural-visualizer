@@ -1,80 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useRouter } from 'next/router';
-import axios from 'axios';
-import { modelActions } from '../model-library/model-library';
-import { authActions } from '../auth/auth';
-import { modelUploadActions } from '../model-upload/model-upload';
-import { modelEditingActions } from '../model-editing/model-editing';
-import { config } from '../../config/index';
+import { addFurniture, removeFurniture, updateFurniture } from '../model-editing/model-editing.slice';
+import { selectFurniture } from '../model-editing/model-editing.selectors';
+import { fetchFurniture } from '../api/furniture.api';
+import { selectUser } from '../auth/auth.selectors';
+import { ThreeDModel } from '../model-library/model-library';
 
 const FurnitureLibrary = () => {
   const dispatch = useDispatch();
-  const router = useRouter();
-  const [furniture, setFurniture] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterTerm, setFilterTerm] = useState('');
-  const user = useSelector((state) => state.auth.user);
+  const furniture = useSelector(selectFurniture);
+  const user = useSelector(selectUser);
+  const [furnitureList, setFurnitureList] = useState([]);
+  const [selectedFurniture, setSelectedFurniture] = useState(null);
 
   useEffect(() => {
-    const fetchFurniture = async () => {
-      try {
-        const response = await axios.get(`${config.apiUrl}/furniture`);
-        setFurniture(response.data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchFurniture();
+    fetchFurniture().then((data) => setFurnitureList(data));
   }, []);
 
-  const handleSearch = (event) => {
-    setSearchTerm(event.target.value);
-  };
-
-  const handleFilter = (event) => {
-    setFilterTerm(event.target.value);
-  };
-
   const handleAddFurniture = (furnitureItem) => {
-    dispatch(modelEditingActions.addFurniture(furnitureItem));
-    router.push('/model-editing');
+    dispatch(addFurniture(furnitureItem));
   };
 
-  const filteredFurniture = furniture.filter((item) => {
-    return (
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      item.category.toLowerCase().includes(filterTerm.toLowerCase())
-    );
-  });
+  const handleRemoveFurniture = (furnitureItem) => {
+    dispatch(removeFurniture(furnitureItem));
+  };
+
+  const handleUpdateFurniture = (furnitureItem) => {
+    dispatch(updateFurniture(furnitureItem));
+  };
+
+  const handleSelectFurniture = (furnitureItem) => {
+    setSelectedFurniture(furnitureItem);
+  };
 
   return (
     <div>
       <h1>Furniture Library</h1>
-      <input
-        type="search"
-        value={searchTerm}
-        onChange={handleSearch}
-        placeholder="Search furniture"
-      />
-      <select value={filterTerm} onChange={handleFilter}>
-        <option value="">All categories</option>
-        <option value="chair">Chair</option>
-        <option value="table">Table</option>
-        <option value="sofa">Sofa</option>
-      </select>
       <ul>
-        {filteredFurniture.map((item) => (
-          <li key={item._id}>
-            <h2>{item.name}</h2>
-            <p>Category: {item.category}</p>
-            <button onClick={() => handleAddFurniture(item)}>Add to model</button>
-            <div>
-              <img src={item.previewImage} alt={item.name} />
-            </div>
+        {furnitureList.map((furnitureItem) => (
+          <li key={furnitureItem.id}>
+            <button onClick={() => handleSelectFurniture(furnitureItem)}>
+              {furnitureItem.name}
+            </button>
+            <button onClick={() => handleAddFurniture(furnitureItem)}>Add</button>
+            <button onClick={() => handleRemoveFurniture(furnitureItem)}>Remove</button>
+            <button onClick={() => handleUpdateFurniture(furnitureItem)}>Update</button>
           </li>
         ))}
       </ul>
+      {selectedFurniture && (
+        <ThreeDModel
+          model={selectedFurniture.model}
+          textures={selectedFurniture.textures}
+          materials={selectedFurniture.materials}
+        />
+      )}
     </div>
   );
 };
