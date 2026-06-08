@@ -1,82 +1,161 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useRouter } from 'next/router';
-import { uploadTexture, getTextures } from '../utils/model-utils';
-import { setTexture } from '../features/model-editing/model-editing';
-import { auth } from '../features/auth/auth';
+import { modelUtils } from '../utils/model-utils';
+import { textureEditorActions } from '../features/texture-editor/texture-editor.slice';
+import { modelUploadActions } from '../features/model-upload/model-upload.slice';
+import { authActions } from '../features/auth/auth.slice';
 import axios from 'axios';
 import { MongoClient } from 'mongodb';
 
 const TextureEditor = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { user } = useSelector((state) => state.auth);
-  const { model } = useSelector((state) => state.modelEditing);
-  const [texture, setTextureState] = useState(null);
-  const [textures, setTexturesState] = useState([]);
-  const [material, setMaterialState] = useState(null);
-  const [materials, setMaterialsState] = useState([]);
+  const { userId, modelName } = router.query;
+  const { textures, materials } = useSelector((state) => state.textureEditor);
+  const [selectedTexture, setSelectedTexture] = useState(null);
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
+  const [textureName, setTextureName] = useState('');
+  const [materialName, setMaterialName] = useState('');
+  const [textureImage, setTextureImage] = useState(null);
+  const [materialImage, setMaterialImage] = useState(null);
 
   useEffect(() => {
-    const fetchTextures = async () => {
-      const response = await axios.get('/api/textures');
-      setTexturesState(response.data);
-    };
-    fetchTextures();
-  }, []);
-
-  useEffect(() => {
-    const fetchMaterials = async () => {
-      const response = await axios.get('/api/materials');
-      setMaterialsState(response.data);
-    };
-    fetchMaterials();
-  }, []);
+    dispatch(textureEditorActions.getTextures());
+    dispatch(textureEditorActions.getMaterials());
+  }, [dispatch]);
 
   const handleTextureChange = (event) => {
-    setTextureState(event.target.files[0]);
+    setSelectedTexture(event.target.value);
   };
 
   const handleMaterialChange = (event) => {
-    setMaterialState(event.target.value);
+    setSelectedMaterial(event.target.value);
   };
 
-  const handleUploadTexture = async () => {
-    if (texture) {
-      const response = await uploadTexture(texture);
-      setTextureState(null);
-      dispatch(setTexture(response.data));
+  const handleTextureNameChange = (event) => {
+    setTextureName(event.target.value);
+  };
+
+  const handleMaterialNameChange = (event) => {
+    setMaterialName(event.target.value);
+  };
+
+  const handleTextureImageChange = (event) => {
+    setTextureImage(event.target.files[0]);
+  };
+
+  const handleMaterialImageChange = (event) => {
+    setMaterialImage(event.target.files[0]);
+  };
+
+  const handleSaveTexture = async () => {
+    const formData = new FormData();
+    formData.append('textureName', textureName);
+    formData.append('textureImage', textureImage);
+
+    try {
+      const response = await axios.post('/api/textures', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      dispatch(textureEditorActions.addTexture(response.data));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleSaveMaterial = async () => {
+    const formData = new FormData();
+    formData.append('materialName', materialName);
+    formData.append('materialImage', materialImage);
+
+    try {
+      const response = await axios.post('/api/materials', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      dispatch(textureEditorActions.addMaterial(response.data));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleApplyTexture = async () => {
+    if (selectedTexture) {
+      try {
+        const response = await axios.put(`/api/models/${modelName}/textures`, {
+          textureId: selectedTexture,
+        });
+
+        dispatch(modelUploadActions.updateModel(response.data));
+      } catch (error) {
+        console.error(error);
+      }
     }
   };
 
   const handleApplyMaterial = async () => {
-    if (material) {
-      const response = await axios.post('/api/apply-material', {
-        modelId: model.id,
-        materialId: material,
-      });
-      dispatch(setTexture(response.data));
+    if (selectedMaterial) {
+      try {
+        const response = await axios.put(`/api/models/${modelName}/materials`, {
+          materialId: selectedMaterial,
+        });
+
+        dispatch(modelUploadActions.updateModel(response.data));
+      } catch (error) {
+        console.error(error);
+      }
     }
   };
 
   return (
     <div>
-      <h1>Texture Editor</h1>
-      <input type="file" onChange={handleTextureChange} />
-      <button onClick={handleUploadTexture}>Upload Texture</button>
-      <select value={material} onChange={handleMaterialChange}>
-        {materials.map((material) => (
-          <option key={material.id} value={material.id}>
-            {material.name}
-          </option>
-        ))}
-      </select>
-      <button onClick={handleApplyMaterial}>Apply Material</button>
+      <h1>Texture and Material Editor</h1>
       <div>
-        {textures.map((texture) => (
-          <img key={texture.id} src={texture.url} />
-        ))}
+        <label>Texture:</label>
+        <select value={selectedTexture} onChange={handleTextureChange}>
+          {textures.map((texture) => (
+            <option key={texture._id} value={texture._id}>
+              {texture.name}
+            </option>
+          ))}
+        </select>
       </div>
+      <div>
+        <label>Material:</label>
+        <select value={selectedMaterial} onChange={handleMaterialChange}>
+          {materials.map((material) => (
+            <option key={material._id} value={material._id}>
+              {material.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label>Texture Name:</label>
+        <input type="text" value={textureName} onChange={handleTextureNameChange} />
+      </div>
+      <div>
+        <label>Texture Image:</label>
+        <input type="file" onChange={handleTextureImageChange} />
+      </div>
+      <div>
+        <label>Material Name:</label>
+        <input type="text" value={materialName} onChange={handleMaterialNameChange} />
+      </div>
+      <div>
+        <label>Material Image:</label>
+        <input type="file" onChange={handleMaterialImageChange} />
+      </div>
+      <button onClick={handleSaveTexture}>Save Texture</button>
+      <button onClick={handleSaveMaterial}>Save Material</button>
+      <button onClick={handleApplyTexture}>Apply Texture</button>
+      <button onClick={handleApplyMaterial}>Apply Material</button>
     </div>
   );
 };
