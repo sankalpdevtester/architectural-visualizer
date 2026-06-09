@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateModel } from '../model-editing/model-editing';
 import { getModel } from '../model-library/model-library';
 import { addLighting } from '../model-upload/model-upload';
-import { saveModel } from '../models/index';
-import { auth } from '../features/auth/auth';
-import { TextureEditor } from '../features/texture-editor/texture-editor';
+import { getTextures } from '../texture-editor/texture-editor';
+import { getFurniture } from '../furniture-library/furniture-library';
+import { auth } from '../auth/auth';
 import { modelUtils } from '../utils/model-utils';
+import { config } from '../config/index';
+import axios from 'axios';
 
 const LightingControls = () => {
   const dispatch = useDispatch();
@@ -22,7 +24,7 @@ const LightingControls = () => {
     fog: false,
     fogColor: '#ffffff',
     fogNear: 1,
-    fogFar: 100,
+    fogFar: 1000,
   });
 
   useEffect(() => {
@@ -34,27 +36,36 @@ const LightingControls = () => {
 
   const handleLightingChange = (e) => {
     const { name, value } = e.target;
-    setLighting((prev) => ({ ...prev, [name]: parseFloat(value) }));
+    setLighting((prevLighting) => ({ ...prevLighting, [name]: value }));
   };
 
   const handleAtmosphereChange = (e) => {
     const { name, value } = e.target;
-    setAtmosphere((prev) => ({ ...prev, [name]: value }));
+    setAtmosphere((prevAtmosphere) => ({ ...prevAtmosphere, [name]: value }));
   };
 
-  const handleSave = () => {
-    const updatedModel = { ...model, lighting, atmosphere };
+  const handleSave = async () => {
+    const updatedModel = {
+      ...model,
+      lighting,
+      atmosphere,
+    };
     dispatch(updateModel(updatedModel));
-    dispatch(saveModel(updatedModel));
-  };
-
-  const handleAddLighting = () => {
-    dispatch(addLighting(lighting));
+    try {
+      const response = await axios.put(`${config.apiUrl}/models/${model._id}`, updatedModel, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      console.log(response.data);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
     <div>
-      <h2>Lighting Controls</h2>
+      <h2>Lighting and Atmosphere Controls</h2>
       <form>
         <label>
           Ambient:
@@ -63,7 +74,7 @@ const LightingControls = () => {
             name="ambient"
             min="0"
             max="1"
-            step="0.1"
+            step="0.01"
             value={lighting.ambient}
             onChange={handleLightingChange}
           />
@@ -76,7 +87,7 @@ const LightingControls = () => {
             name="diffuse"
             min="0"
             max="1"
-            step="0.1"
+            step="0.01"
             value={lighting.diffuse}
             onChange={handleLightingChange}
           />
@@ -89,7 +100,7 @@ const LightingControls = () => {
             name="specular"
             min="0"
             max="1"
-            step="0.1"
+            step="0.01"
             value={lighting.specular}
             onChange={handleLightingChange}
           />
@@ -108,9 +119,6 @@ const LightingControls = () => {
           />
           {lighting.shininess}
         </label>
-      </form>
-      <h2>Atmosphere Controls</h2>
-      <form>
         <label>
           Fog:
           <input
@@ -135,7 +143,7 @@ const LightingControls = () => {
             type="range"
             name="fogNear"
             min="1"
-            max="100"
+            max="1000"
             step="1"
             value={atmosphere.fogNear}
             onChange={handleAtmosphereChange}
@@ -148,17 +156,17 @@ const LightingControls = () => {
             type="range"
             name="fogFar"
             min="1"
-            max="100"
+            max="1000"
             step="1"
             value={atmosphere.fogFar}
             onChange={handleAtmosphereChange}
           />
           {atmosphere.fogFar}
         </label>
+        <button type="button" onClick={handleSave}>
+          Save
+        </button>
       </form>
-      <button onClick={handleSave}>Save</button>
-      <button onClick={handleAddLighting}>Add Lighting</button>
-      <TextureEditor />
     </div>
   );
 };
