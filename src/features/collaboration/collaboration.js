@@ -1,48 +1,71 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useRouter } from 'next/router';
-import { addComment, getComments } from '../api/comments';
-import { selectModel } from '../features/model-editing/model-editing';
-import { selectUser } from '../features/auth/auth';
+import { updateModel } from '../model-editing/model-editing';
+import { getModel } from '../model-library/model-library';
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3001');
 
 const Collaboration = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const modelId = router.query.modelId;
+  const { id } = router.query;
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
-  const model = useSelector(selectModel);
-  const user = useSelector(selectUser);
+  const model = useSelector((state) => state.model);
 
   useEffect(() => {
-    getComments(modelId).then((comments) => setComments(comments));
-  }, [modelId]);
-
-  const handleAddComment = () => {
-    addComment(modelId, newComment, user.id).then((comment) => {
-      setComments([...comments, comment]);
-      setNewComment('');
+    socket.on('connect', () => {
+      console.log('Connected to socket.io server');
     });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from socket.io server');
+    });
+
+    socket.on('newComment', (comment) => {
+      setComments((prevComments) => [...prevComments, comment]);
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('newComment');
+    };
+  }, []);
+
+  const handleCommentSubmit = (e) => {
+    e.preventDefault();
+    socket.emit('newComment', { comment: newComment, modelId: id });
+    setNewComment('');
+  };
+
+  const handleCommentDelete = (commentId) => {
+    socket.emit('deleteComment', { commentId, modelId: id });
+    setComments((prevComments) => prevComments.filter((comment) => comment.id !== commentId));
   };
 
   return (
     <div>
       <h2>Collaboration</h2>
+      <form onSubmit={handleCommentSubmit}>
+        <input
+          type="text"
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder="Add a comment"
+        />
+        <button type="submit">Submit</button>
+      </form>
       <ul>
         {comments.map((comment) => (
           <li key={comment.id}>
-            <p>{comment.text}</p>
-            <p>By {comment.user.name}</p>
+            {comment.text}
+            <button onClick={() => handleCommentDelete(comment.id)}>Delete</button>
           </li>
         ))}
       </ul>
-      <input
-        type="text"
-        value={newComment}
-        onChange={(e) => setNewComment(e.target.value)}
-        placeholder="Add a comment"
-      />
-      <button onClick={handleAddComment}>Add Comment</button>
     </div>
   );
 };
