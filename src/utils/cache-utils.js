@@ -1,90 +1,105 @@
 /**
- * Cache utility module to store and retrieve API responses with a time-to-live (TTL)
+ * Cache utility module for storing API responses with a time-to-live (TTL).
  * @module cache-utils
  */
 
 const cache = {};
-const ttl = 60 * 1000; // 1 minute
 
 /**
- * Set a value in the cache with a TTL
- * @param {string} key - Cache key
- * @param {any} value - Value to store
+ * Set a value in the cache with a TTL.
+ * @param {string} key - The cache key.
+ * @param {any} value - The value to store.
+ * @param {number} ttl - The time-to-live in milliseconds.
  */
-function setCache(key, value) {
-  const currentTime = new Date().getTime();
-  cache[key] = { value, expiresAt: currentTime + ttl };
+function setCache(key, value, ttl) {
+  const expiresAt = Date.now() + ttl;
+  cache[key] = { value, expiresAt };
 }
 
 /**
- * Get a value from the cache
- * @param {string} key - Cache key
- * @returns {any} Value stored in the cache, or null if not found or expired
+ * Get a value from the cache.
+ * @param {string} key - The cache key.
+ * @returns {any} The cached value or null if not found or expired.
  */
 function getCache(key) {
-  if (!cache[key]) return null;
-  const currentTime = new Date().getTime();
-  if (cache[key].expiresAt < currentTime) {
+  const cached = cache[key];
+  if (!cached) return null;
+  if (cached.expiresAt < Date.now()) {
     delete cache[key];
     return null;
   }
-  return cache[key].value;
+  return cached.value;
 }
 
 /**
- * Clear the cache
+ * Clear the cache.
  */
 function clearCache() {
-  cache = {};
+  Object.keys(cache).forEach((key) => delete cache[key]);
 }
 
 /**
- * Check if a value is cached
- * @param {string} key - Cache key
- * @returns {boolean} True if the value is cached, false otherwise
+ * Check if a key is cached.
+ * @param {string} key - The cache key.
+ * @returns {boolean} True if the key is cached, false otherwise.
  */
 function isCached(key) {
-  return cache[key] !== undefined;
+  return !!cache[key];
 }
 
 /**
- * Get the cache expiration time for a key
- * @param {string} key - Cache key
- * @returns {number} Expiration time in milliseconds, or -1 if not found
+ * Get the cache expiration time for a key.
+ * @param {string} key - The cache key.
+ * @returns {number} The expiration time in milliseconds or -1 if not found.
  */
 function getCacheExpiration(key) {
-  if (!cache[key]) return -1;
-  return cache[key].expiresAt;
+  const cached = cache[key];
+  return cached ? cached.expiresAt : -1;
 }
 
 // Example usage:
-// setCache('apiResponse', { data: 'example data' });
-// const cachedValue = getCache('apiResponse');
-// console.log(cachedValue); // { data: 'example data' }
+// Set a cache value with a 1-minute TTL
+setCache('apiResponse', { data: 'example data' }, 60000);
 
-// Integrate with existing files:
-// In src/features/model-editing/model-editing.js:
-// import { getCache, setCache } from '../utils/cache-utils';
+// Get the cached value
+const cachedValue = getCache('apiResponse');
+console.log(cachedValue); // { data: 'example data' }
+
+// Clear the cache
+clearCache();
+
+// Check if a key is cached
+console.log(isCached('apiResponse')); // false
+
+// Get the cache expiration time
+console.log(getCacheExpiration('apiResponse')); // -1
+
+// Integrate with existing files
+// src/features/model-editing/model-editing.js
+import { getCache } from '../utils/cache-utils';
 // ...
-// const cachedModel = getCache('modelData');
-// if (cachedModel) {
-//   // Use cached model data
-// } else {
-//   // Fetch model data from API and cache it
-//   const modelData = await fetchModelData();
-//   setCache('modelData', modelData);
-// }
+const cachedModel = getCache('modelData');
+if (cachedModel) {
+  // Use the cached model data
+} else {
+  // Fetch the model data from the API
+}
 
-// In src/features/model-library/model-library.js:
-// import { getCache, setCache } from '../utils/cache-utils';
+// src/features/model-library/model-library.js
+import { setCache } from '../utils/cache-utils';
 // ...
-// const cachedModels = getCache('models');
-// if (cachedModels) {
-//   // Use cached models
-// } else {
-//   // Fetch models from API and cache them
-//   const models = await fetchModels();
-//   setCache('models', models);
-// }
+setCache('modelList', modelList, 30000); // Cache the model list for 30 seconds
 
-export { setCache, getCache, clearCache, isCached, getCacheExpiration };
+// src/features/furniture-library/furniture-library.js
+import { clearCache } from '../utils/cache-utils';
+// ...
+clearCache(); // Clear the cache when the furniture library is updated
+
+// src/features/model-upload/model-upload.js
+import { isCached } from '../utils/cache-utils';
+// ...
+if (isCached('uploadProgress')) {
+  // Use the cached upload progress
+} else {
+  // Fetch the upload progress from the API
+}
