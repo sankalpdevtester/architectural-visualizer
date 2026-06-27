@@ -1,19 +1,20 @@
+// src/utils/cache-utils.js
 /**
- * Cache utility module for storing API responses with a time-to-live (TTL).
- * @module cache-utils
+ * In-memory cache utility with TTL (time to live) for API responses.
+ * This utility helps reduce the number of API calls by caching frequently accessed data.
  */
 
 const cache = {};
 
 /**
- * Set a value in the cache with a TTL.
+ * Set a value in the cache with a TTL (time to live) in milliseconds.
  * @param {string} key - The cache key.
- * @param {any} value - The value to store.
- * @param {number} ttl - The time-to-live in milliseconds.
+ * @param {any} value - The value to cache.
+ * @param {number} ttl - The time to live in milliseconds.
  */
 function setCache(key, value, ttl) {
-  const expiresAt = Date.now() + ttl;
-  cache[key] = { value, expiresAt };
+  const now = Date.now();
+  cache[key] = { value, expires: now + ttl };
 }
 
 /**
@@ -22,9 +23,9 @@ function setCache(key, value, ttl) {
  * @returns {any} The cached value or null if not found or expired.
  */
 function getCache(key) {
+  const now = Date.now();
   const cached = cache[key];
-  if (!cached) return null;
-  if (cached.expiresAt < Date.now()) {
+  if (!cached || cached.expires < now) {
     delete cache[key];
     return null;
   }
@@ -35,7 +36,7 @@ function getCache(key) {
  * Clear the cache.
  */
 function clearCache() {
-  Object.keys(cache).forEach((key) => delete cache[key]);
+  cache = {};
 }
 
 /**
@@ -44,62 +45,38 @@ function clearCache() {
  * @returns {boolean} True if the key is cached, false otherwise.
  */
 function isCached(key) {
-  return !!cache[key];
-}
-
-/**
- * Get the cache expiration time for a key.
- * @param {string} key - The cache key.
- * @returns {number} The expiration time in milliseconds or -1 if not found.
- */
-function getCacheExpiration(key) {
+  const now = Date.now();
   const cached = cache[key];
-  return cached ? cached.expiresAt : -1;
+  return cached && cached.expires > now;
 }
 
 // Example usage:
-// Set a cache value with a 1-minute TTL
-setCache('apiResponse', { data: 'example data' }, 60000);
+// Set a cache with a TTL of 1 minute (60000 milliseconds)
+// setCache('apiResponse', { data: 'example data' }, 60000);
 
 // Get the cached value
-const cachedValue = getCache('apiResponse');
-console.log(cachedValue); // { data: 'example data' }
+// const cachedValue = getCache('apiResponse');
 
 // Clear the cache
-clearCache();
+// clearCache();
 
 // Check if a key is cached
-console.log(isCached('apiResponse')); // false
+// const isCachedValue = isCached('apiResponse');
 
-// Get the cache expiration time
-console.log(getCacheExpiration('apiResponse')); // -1
+// Export the cache utility functions
+export { setCache, getCache, clearCache, isCached };
 
 // Integrate with existing files
-// src/features/model-editing/model-editing.js
-import { getCache } from '../utils/cache-utils';
-// ...
-const cachedModel = getCache('modelData');
-if (cachedModel) {
-  // Use the cached model data
-} else {
-  // Fetch the model data from the API
-}
+// For example, in src/features/model-editing/model-editing.js
+// import { setCache, getCache } from '../utils/cache-utils';
 
-// src/features/model-library/model-library.js
-import { setCache } from '../utils/cache-utils';
-// ...
-setCache('modelList', modelList, 30000); // Cache the model list for 30 seconds
-
-// src/features/furniture-library/furniture-library.js
-import { clearCache } from '../utils/cache-utils';
-// ...
-clearCache(); // Clear the cache when the furniture library is updated
-
-// src/features/model-upload/model-upload.js
-import { isCached } from '../utils/cache-utils';
-// ...
-if (isCached('uploadProgress')) {
-  // Use the cached upload progress
-} else {
-  // Fetch the upload progress from the API
-}
+// Before making an API call, check if the response is cached
+// const cachedResponse = getCache('modelEditingResponse');
+// if (cachedResponse) {
+//   // Use the cached response
+// } else {
+//   // Make the API call and cache the response
+//   const response = await fetch('/api/model-editing');
+//   const data = await response.json();
+//   setCache('modelEditingResponse', data, 60000);
+// }
