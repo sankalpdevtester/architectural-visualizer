@@ -1,102 +1,77 @@
 /**
- * Cache utility module for storing and retrieving API responses with a time-to-live (TTL) value.
- * This module uses a simple in-memory cache implementation using a JavaScript object.
- * It provides methods for setting, getting, and deleting cache entries, as well as a mechanism for automatic cache expiration.
+ * Cache utility module to store and retrieve API responses with a time-to-live (TTL)
  */
 
 const cache = {};
-const ttlMap = {};
 
 /**
- * Set a cache entry with a TTL value.
- * @param {string} key - The cache key.
- * @param {any} value - The cache value.
- * @param {number} ttl - The time-to-live value in milliseconds.
+ * Set a value in the cache with a TTL
+ * @param {string} key - The cache key
+ * @param {any} value - The value to store
+ * @param {number} ttl - The time-to-live in milliseconds
  */
-function setCache(key, value, ttl) {
-  cache[key] = value;
-  ttlMap[key] = Date.now() + ttl;
-}
+const setCache = (key, value, ttl) => {
+  const currentTime = new Date().getTime();
+  cache[key] = { value, expiresAt: currentTime + ttl };
+};
 
 /**
- * Get a cache entry.
- * @param {string} key - The cache key.
- * @returns {any} The cache value, or undefined if the entry has expired or does not exist.
+ * Get a value from the cache
+ * @param {string} key - The cache key
+ * @returns {any} The cached value or null if not found or expired
  */
-function getCache(key) {
-  if (ttlMap[key] && Date.now() > ttlMap[key]) {
+const getCache = (key) => {
+  if (!cache[key]) return null;
+  const currentTime = new Date().getTime();
+  if (cache[key].expiresAt < currentTime) {
     delete cache[key];
-    delete ttlMap[key];
-    return undefined;
+    return null;
   }
-  return cache[key];
-}
+  return cache[key].value;
+};
 
 /**
- * Delete a cache entry.
- * @param {string} key - The cache key.
+ * Clear the cache
  */
-function deleteCache(key) {
-  delete cache[key];
-  delete ttlMap[key];
-}
-
-/**
- * Clear all cache entries.
- */
-function clearCache() {
+const clearCache = () => {
   cache = {};
-  ttlMap = {};
-}
+};
 
 /**
- * Check if a cache entry exists and has not expired.
- * @param {string} key - The cache key.
- * @returns {boolean} True if the entry exists and has not expired, false otherwise.
+ * Check if a key exists in the cache
+ * @param {string} key - The cache key
+ * @returns {boolean} True if the key exists, false otherwise
  */
-function hasCache(key) {
-  return ttlMap[key] && Date.now() < ttlMap[key];
-}
+const hasCache = (key) => {
+  return Object.keys(cache).includes(key);
+};
 
 /**
- * Get the TTL value for a cache entry.
- * @param {string} key - The cache key.
- * @returns {number} The TTL value in milliseconds, or -1 if the entry does not exist or has expired.
+ * Get the TTL for a cached value
+ * @param {string} key - The cache key
+ * @returns {number} The TTL in milliseconds or -1 if not found
  */
-function getTTL(key) {
-  if (ttlMap[key] && Date.now() < ttlMap[key]) {
-    return ttlMap[key] - Date.now();
-  }
-  return -1;
-}
+const getTTL = (key) => {
+  if (!cache[key]) return -1;
+  const currentTime = new Date().getTime();
+  return cache[key].expiresAt - currentTime;
+};
 
 // Example usage:
-// Set a cache entry with a TTL of 1 minute
-setCache('apiResponse', { data: 'example data' }, 60000);
+// Set a value in the cache with a TTL of 1 minute
+// setCache('apiResponse', { data: 'example data' }, 60000);
 
-// Get the cache entry
-const cachedResponse = getCache('apiResponse');
-console.log(cachedResponse); // { data: 'example data' }
+// Get the cached value
+// const cachedValue = getCache('apiResponse');
 
-// Delete the cache entry
-deleteCache('apiResponse');
+// Clear the cache
+// clearCache();
 
-// Clear all cache entries
-clearCache();
+// Check if a key exists in the cache
+// const hasKey = hasCache('apiResponse');
 
-// Check if a cache entry exists and has not expired
-const hasEntry = hasCache('apiResponse');
-console.log(hasEntry); // false
+// Get the TTL for a cached value
+// const ttl = getTTL('apiResponse');
 
-// Get the TTL value for a cache entry
-const ttl = getTTL('apiResponse');
-console.log(ttl); // -1
-
-module.exports = {
-  setCache,
-  getCache,
-  deleteCache,
-  clearCache,
-  hasCache,
-  getTTL,
-};
+// Export the cache utility functions
+export { setCache, getCache, clearCache, hasCache, getTTL };
